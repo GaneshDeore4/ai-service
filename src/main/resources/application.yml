@@ -1,0 +1,25 @@
+#server:
+#  port: 9099
+#
+#spring:
+#  application:
+#    name: AI-SERVICE
+#
+#eureka:
+#  client:
+#    service-url:
+#      defaultZone: http://localhost:8761/eureka/
+#  instance:
+#    prefer-ip-address: true
+#
+#ai:
+#  service:
+#    api-key: Jt2!9xVbQq3sF2zL
+
+
+server:
+  port: 8080
+
+ollama:
+  base-url: http://localhost:11434
+  model: llama3

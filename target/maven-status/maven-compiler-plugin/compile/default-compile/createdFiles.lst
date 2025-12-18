@@ -1,0 +1,8 @@
+com\bank\aiservice\AiServiceApplication.class
+com\bank\aiservice\llm\OllamaClient.class
+com\bank\aiservice\agent\SupportAiAgent.class
+com\bank\aiservice\config\WebClientConfig.class
+com\bank\aiservice\controller\AiProxyController.class
+com\bank\aiservice\llm\LlmClient.class
+com\bank\aiservice\controller\SupportController.class
+com\bank\aiservice\dto\QuestionRequest.class
