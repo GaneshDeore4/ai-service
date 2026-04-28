@@ -1,218 +1,38 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>com.indusind.trade</groupId>
-		<artifactId>app-parent</artifactId>
-		<version>0.0.1</version>
-	</parent>
-	<groupId>com.indusind.trade</groupId>
-	<artifactId>admin-service</artifactId>
-	<name>admin-service</name>
-	<description>Admin Service</description>
+BEGIN
+  -- Drop Views
+  FOR v IN (SELECT view_name FROM user_views) LOOP
+    EXECUTE IMMEDIATE 'DROP VIEW "' || v.view_name || '"';
+  END LOOP;
 
-	<dependencies>
-		<!-- FORCE JACKSON AT THE TOP TO OVERRIDE SHADED CLASSES IN LOCAL JARS -->
-		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
-			<artifactId>jackson-core</artifactId>
-			<version>2.18.1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
-			<artifactId>jackson-databind</artifactId>
-			<version>2.18.1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
-			<artifactId>jackson-annotations</artifactId>
-			<version>2.18.1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.fasterxml.jackson.datatype</groupId>
-			<artifactId>jackson-datatype-jsr310</artifactId>
-			<version>2.18.1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.fasterxml.jackson.module</groupId>
-			<artifactId>jackson-module-parameter-names</artifactId>
-			<version>2.18.1</version>
-		</dependency>
+  -- Drop Tables (with constraints)
+  FOR t IN (SELECT table_name FROM user_tables) LOOP
+    EXECUTE IMMEDIATE 'DROP TABLE "' || t.table_name || '" CASCADE CONSTRAINTS';
+  END LOOP;
 
-        <!-- Eureka Client -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-        </dependency>
-		<!-- Core -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jpa</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-security</artifactId>
-		</dependency>
-		<!-- AOP for @Auditable aspect -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-aop</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-webflux</artifactId>
-		</dependency>
-		<!-- Oracle JDBC -->
-		<dependency>
-			<groupId>com.oracle.database.jdbc</groupId>
-			<artifactId>ojdbc11</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<!-- H2 (dev/test) -->
-		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-		</dependency>
-		<!-- JWT — same secret & version as Auth Service -->
-		<dependency>
-			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-api</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-impl</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-jackson</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<!-- Circuit Breaker -->
-		<dependency>
-			<groupId>io.github.resilience4j</groupId>
-			<artifactId>resilience4j-spring-boot3</artifactId>
-		</dependency>
-		<!-- Shared Library for Microservices -->
-<!--		<dependency>-->
-<!--			<groupId>com.indusind.trade</groupId>-->
-<!--			<artifactId>app-common</artifactId>-->
-<!--		</dependency>-->
-<!--		<dependency>-->
-<!--			<groupId>com.indusind.trade</groupId>-->
-<!--			<artifactId>app-model</artifactId>-->
-<!--		</dependency>-->
-		<dependency>
-			<groupId>com.indusind.trade</groupId>
-			<artifactId>app-sms-email-service</artifactId>
-		</dependency>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-openfeign</artifactId>
-        </dependency>
-		<!-- Encryption JARS -->
-		<dependency>
-			<groupId>CERTCONST</groupId>
-			<artifactId>CERTCONST</artifactId>
-			<version>1.0</version>
-			<exclusions>
-				<exclusion>
-					<groupId>*</groupId>
-					<artifactId>*</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>IBLAPIIntegrator</groupId>
-			<artifactId>IBLAPIIntegrator</artifactId>
-			<version>1.0</version>
-			<exclusions>
-				<exclusion>
-					<groupId>*</groupId>
-					<artifactId>*</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>PublicKeyReader</groupId>
-			<artifactId>PublicKeyReader</artifactId>
-			<version>1.0</version>
-			<exclusions>
-				<exclusion>
-					<groupId>*</groupId>
-					<artifactId>*</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-	</dependencies>
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-install-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>install-CERTCONST-jar</id>
-						<phase>initialize</phase>
-						<goals>
-							<goal>install-file</goal>
-						</goals>
-						<configuration>
-							<file>${project.basedir}/libs/CERTCONST.jar</file>
-							<groupId>CERTCONST</groupId>
-							<artifactId>CERTCONST</artifactId>
-							<version>1.0</version>
-							<packaging>jar</packaging>
-						</configuration>
-					</execution>
-					<execution>
-						<id>install-IBLAPIIntegrator-0.0.1-SNAPSHOT-jar</id>
-						<phase>initialize</phase>
-						<goals>
-							<goal>install-file</goal>
-						</goals>
-						<configuration>
-							<file>${project.basedir}/libs/IBLAPIIntegrator-0.0.1-SNAPSHOT.jar</file>
-							<groupId>IBLAPIIntegrator</groupId>
-							<artifactId>IBLAPIIntegrator</artifactId>
-							<version>1.0</version>
-							<packaging>jar</packaging>
-						</configuration>
-					</execution>
-					<execution>
-						<id>install-PublicKeyReader-jar</id>
-						<phase>initialize</phase>
-						<goals>
-							<goal>install-file</goal>
-						</goals>
-						<configuration>
-							<file>${project.basedir}/libs/PublicKeyReader.jar</file>
-							<groupId>PublicKeyReader</groupId>
-							<artifactId>PublicKeyReader</artifactId>
-							<version>1.0</version>
-							<packaging>jar</packaging>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-		</plugins>
-	</build>
-</project>
+  -- Drop Sequences
+  FOR s IN (SELECT sequence_name FROM user_sequences) LOOP
+    EXECUTE IMMEDIATE 'DROP SEQUENCE "' || s.sequence_name || '"';
+  END LOOP;
+
+  -- Drop Procedures
+  FOR p IN (SELECT object_name FROM user_objects WHERE object_type = 'PROCEDURE') LOOP
+    EXECUTE IMMEDIATE 'DROP PROCEDURE "' || p.object_name || '"';
+  END LOOP;
+
+  -- Drop Functions
+  FOR f IN (SELECT object_name FROM user_objects WHERE object_type = 'FUNCTION') LOOP
+    EXECUTE IMMEDIATE 'DROP FUNCTION "' || f.object_name || '"';
+  END LOOP;
+
+  -- Drop Packages
+  FOR pkg IN (SELECT object_name FROM user_objects WHERE object_type = 'PACKAGE') LOOP
+    EXECUTE IMMEDIATE 'DROP PACKAGE "' || pkg.object_name || '"';
+  END LOOP;
+
+  -- Drop Triggers
+  FOR trg IN (SELECT trigger_name FROM user_triggers) LOOP
+    EXECUTE IMMEDIATE 'DROP TRIGGER "' || trg.trigger_name || '"';
+  END LOOP;
+
+END;
+/
