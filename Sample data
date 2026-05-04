@@ -1,8 +1,195 @@
-{
-		"data": "eyJlbmMiOiJBMjU2R0NNIiwiYWxnIjoiQTI1NktXIn0.h-_b8Is7IQVeuezHNrFRp7zBcOQFZMViYq5sAOND8xujirujMqN-Hw.1b6SBxCVzQbIDudZ.D1blcqNss-Cir11N1LlS548cUdqhCVRiysaC.5LwkrGqdfYNMDZ0hhxZcQQ",
-		"key": "eyJlbmMiOiJBMjU2R0NNIiwiYWxnIjoiUlNBLU9BRVAtMjU2In0.ePkn7w-p2Ia6SpE-x4IVEHYDR7GmtDINv93CYUczrjhw9QAADHRngaS1GFTdlaOarLeDCnGcieJ8GiC-wbqOYFce7cDKPO8ky0P5IRrFbeWIqsQBHCv-eHMvCRGQuM8Ae3bPxlpP9C8pCPU5Fk4xq7knst5ktnUZnkx-8oPmF6BtqD_D_oyAFS-zxgaWiC-4bSEXuO_M95TgmgLYtK0XNUq1VLe5El-nhDBAXet1G6t5XmgrHtCpDSmf8EosW_kJjX1si-oDH4_cfhJ9QU0vR9Rjs-RDTAPQW_mqi-UGNibxdGXuy1bwBbCeTqnR0f-M4vdEhvy_EvKoPYTLjAQboA.WAZTWXAxKx52sxGe.aeKxN3DL5kQkp3nvWNkhTaxFaj0iHCDF8ZjtuGCUp7O6MwnymlRtK9HKMpPo0sK60wyNCpRhOlHAOTzVaFDmkw.MqmWY-s0QxUEfieWJU7TIA",
-		"bit": 0
-	}
+package com.indusind.trade.fd.adapter.impl;
 
-IBL-Client-Id = 9cfecc4cdcae1c048f3518423e01517b
-IBL-Client-Secret = 6b28d05f2c54e67ed003569b775ed033
+import com.indusind.trade.fd.adapter.FixedDepositJsonAdapter;
+import com.indusind.trade.fd.client.BankJsonFeignClient;
+import com.indusind.trade.fd.client.IndusIndV2FeignClient;
+import com.indusind.trade.fd.dto.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
+@Slf4j
+@Component
+@ConditionalOnProperty(name = "app.fd.adapter.type", havingValue = "json")
+@RequiredArgsConstructor
+public class FixedDepositJsonAdapterImpl implements FixedDepositJsonAdapter {
+
+    private final BankJsonFeignClient bankJsonFeignClient;
+    private final IndusIndV2FeignClient indusIndV2FeignClient;
+    
+    @Value("${ibl.client.id}")
+    private String clientId;
+
+    @Value("${ibl.client.secret}")
+    private String clientSecret;
+
+    @Override
+    public AccountDetailsResponse fetchAccountDetails(String acid, CommonRequest common) {
+        log.info("Fetching account details (JSON) for ACID: {}", acid);
+        return getDummyAccountDetails(acid);
+    }
+
+    @Override
+    public FDInterestRatesRespDto calculateFdModel(FDInterestRatesReqDto request) {
+    	
+        log.info("Calculating FD model (V2) for amount: {} via Indus API", request.getAmountValue());
+
+        // Map to External Request DTO with static fields from working Postman request
+        ExternalFDModelDTOs.RequestWrapper externalRequest = ExternalFDModelDTOs.RequestWrapper.builder()
+                .request(ExternalFDModelDTOs.RequestContent.builder()
+                        .header(ExternalFDModelDTOs.RequestHeader.builder()
+                                .requestUUID(java.util.UUID.randomUUID().toString())
+                                .channelId("GCT")
+                                .build())
+                        .body(ExternalFDModelDTOs.RequestBody.builder()
+                                .fdModelDepositRequest(ExternalFDModelDTOs.FDModelDepositRequest.builder()
+                                        .depositAmount(request.getAmountValue())
+                                        .depositPeriodDays(request.getDays() != null ? request.getDays() : "0")
+                                        .depositPeriodMonths(request.getMonths() != null ? request.getMonths() : "0")
+                                        .depositDate(request.getDepositDate() != null
+                                                ? request.getDepositDate().atZone(java.time.ZoneId.systemDefault())
+                                                        .format(java.time.format.DateTimeFormatter.ISO_INSTANT)
+                                                : java.time.Instant.now().toString())
+                                        .depositcurrencyCode("USD")
+                                        .currencyCode("USD")
+                                        .schmCode("FEIBU")
+                                        .interestTableCode("TGINT")
+                                        .daysInAYear("365")
+                                        .monthsInYear("12")
+                                        .flowType("N")
+                                        .pegFlag("Y")
+                                        .depositType("T")
+                                        .schmType("TDA")
+                                        .build())
+                                .build())
+                        .build())
+                .build();
+
+        log.info(">>>> INDUSIND REQUEST: {}", externalRequest);
+
+        try {
+            ExternalFDModelDTOs.ResponseWrapper response = indusIndV2FeignClient.getDepositModelV2(externalRequest,
+                    clientId, clientSecret);
+            log.info("IndusInd Response: {}", response);
+
+            if (response != null && response.getResponse() != null) {
+                ExternalFDModelDTOs.ResponseHeader header = response.getResponse().getHeader();
+                if (header != null && "success".equalsIgnoreCase(header.getStatus())) {
+                    ExternalFDModelDTOs.FDModelDepositResponse body = response.getResponse().getBody()
+                            .getFdModelDepositResponse();
+
+                    return FDInterestRatesRespDto.builder()
+                            .status("SUCCESS")
+                            .interestRate(body.getInterestRate())
+                            .maturityAmount(body.getMaturityAmt())
+                            .maturityDate(java.time.LocalDate.parse(body.getMaturityDate().substring(0, 10)))
+                            .interestAmount(body.getInterestAmount())
+                            .currency(body.getCurrencyCode())
+                            .build();
+                } else if (response.getResponse().getError() != null) {
+                    return FDInterestRatesRespDto.builder()
+                            .status("FAILED")
+                            .errorCode(response.getResponse().getError().getErrorCode())
+                            .errorMessage(response.getResponse().getError().getErrorDesc())
+                            .build();
+                }
+            }
+
+            return FDInterestRatesRespDto.builder()
+                    .status("FAILED")
+                    .errorMessage("Unexpected response structure from API")
+                    .build();
+        } catch (Exception e) {
+            log.error("Error calling IndusInd FD Model API: {}", e.getMessage());
+            return FDInterestRatesRespDto.builder()
+                    .status("FAILED")
+                    .errorMessage("API Connection/Parsing Error: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    @Override
+    public Object createFd(Map<String, Object> request) {
+        log.info("Creating FD (td-add-account)");
+        // Dummy implementation for now
+        Map<String, String> response = new HashMap<>();
+        response.put("responseCode", "00");
+        response.put("responseDesc", "Fixed Deposit Created Successfully");
+        return response;
+    }
+
+    private Map<String, Object> mapToMap(CommonRequest common) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("appType", common.getAppType());
+        map.put("appVersion", common.getAppVersion());
+        map.put("authProduct", common.getAuthProduct());
+        map.put("com_ImeiNo", common.getCom_ImeiNo());
+        map.put("customerId", common.getCustomerId());
+        map.put("deviceId", common.getDeviceId());
+        map.put("deviceModel", common.getDeviceModel());
+        map.put("deviceName", common.getDeviceName());
+        map.put("deviceOS", common.getDeviceOS());
+        map.put("deviceType", common.getDeviceType());
+        map.put("isUsrLoggedIn", common.getIsUsrLoggedIn());
+        map.put("platform", common.getPlatform());
+        map.put("requestType", common.getRequestType());
+        map.put("token", common.getToken());
+        map.put("userCode", common.getUserCode());
+        map.put("userId", common.getUserId());
+        map.put("userRole", common.getUserRole());
+        return map;
+    }
+
+    private AccountDetailsResponse getDummyAccountDetails(String acid) {
+        AccountDetailsResponse resp = new AccountDetailsResponse();
+        resp.setResponseCode("R000");
+        resp.setResponseDesc("Success");
+        resp.setListAcno(new ArrayList<>());
+
+        AccountDetailsResponse.MappedAccount acc = new AccountDetailsResponse.MappedAccount();
+        acc.setAcctName("XYZ Limited - MOCKED");
+        acc.setAcno(acid);
+        acc.setIsMapped("1");
+        resp.getListAcno().add(acc);
+        return resp;
+    }
+
+    private FdModelResponse getDummyFdModel() {
+        FdModelResponse resp = new FdModelResponse();
+        resp.setStatus("SUCCESS");
+        resp.setInterestRates("6.75");
+        return resp;
+    }
+
+    private OtpResponse getDummyOtpResponse() {
+        OtpResponse resp = new OtpResponse();
+        resp.setErrorCode("00");
+        resp.setOtpHint("1189");
+        resp.setSentTo("878882XXXX");
+        resp.setAction("STATE_ID_MOCKED_123456");
+        return resp;
+    }
+
+    private OtpVerifyResponse getDummyOtpVerifyResponse() {
+        OtpVerifyResponse resp = new OtpVerifyResponse();
+        resp.setResponseCode("00");
+        resp.setResponseDesc("Otp Verified Successfully");
+        return resp;
+    }
+
+    @Override
+    public FdSummaryResponse fetchFdSummary(FdSummaryRequest request) {
+        log.info("Fetching FD summary via JSON (Dummy) for CIF: {}", request.getCifId());
+        return FdSummaryResponse.builder()
+                .responseCode("00")
+                .responseDesc("Success (MOCK)")
+                .fdDetails(new ArrayList<>())
+                .build();
+    }
+}
