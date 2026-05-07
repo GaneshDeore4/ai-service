@@ -1,195 +1,151 @@
-package com.indusind.trade.fd.adapter.impl;
+package com.indusind.trade.admin.facade.impl;
 
-import com.indusind.trade.fd.adapter.FixedDepositJsonAdapter;
-import com.indusind.trade.fd.client.BankJsonFeignClient;
-import com.indusind.trade.fd.client.IndusIndV2FeignClient;
-import com.indusind.trade.fd.dto.*;
+import com.indusind.trade.admin.facade.UserAccountMappingFacade;
+import com.indusind.trade.model.dtos.requestdtos.AddUserAccountMappingRequestDto;
+import com.indusind.trade.model.dtos.response.dtos.AccountDetailsDto;
+import com.indusind.trade.model.dtos.response.dtos.AddUserAccountMappingResponseDto;
+import com.indusind.trade.model.dtos.response.dtos.ApplicationResponse;
+import com.indusind.trade.model.entities.company.AccountDetail;
+import com.indusind.trade.model.entities.company.User;
+import com.indusind.trade.admin.entities.UserAccountMappingTemp;
+import com.indusind.trade.admin.entities.UserAccountMappingTempId;
+import com.indusind.trade.model.exception.GTPAppException;
+import com.indusind.trade.model.service.UserAccountMappingService;
+import com.indusind.trade.model.service.UserService;
+import com.indusind.trade.admin.service.UserAccountMappingTempService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
-@Slf4j
 @Component
-@ConditionalOnProperty(name = "app.fd.adapter.type", havingValue = "json")
 @RequiredArgsConstructor
-public class FixedDepositJsonAdapterImpl implements FixedDepositJsonAdapter {
+public class UserAccountMappingFacadeImpl implements UserAccountMappingFacade {
 
-    private final BankJsonFeignClient bankJsonFeignClient;
-    private final IndusIndV2FeignClient indusIndV2FeignClient;
-    
-    @Value("${ibl.client.id}")
-    private String clientId;
-
-    @Value("${ibl.client.secret}")
-    private String clientSecret;
+    private final UserAccountMappingService userAccountMappingService;
+    private final UserService userService;
+    private final UserAccountMappingTempService userAccountMappingTempService; // Inject new service
 
     @Override
-    public AccountDetailsResponse fetchAccountDetails(String acid, CommonRequest common) {
-        log.info("Fetching account details (JSON) for ACID: {}", acid);
-        return getDummyAccountDetails(acid);
+    public ApplicationResponse getAccountsByCifId(String cifId) {
+        List<AccountDetail> accounts = userAccountMappingService.getAccountDetailsByCifId(cifId);
+
+        List<AccountDetailsDto> accountsDto = accounts.stream().map(
+                AccountDetailsDto :: convertToDto
+        ).toList();
+        return new ApplicationResponse("SUCCESS", accountsDto, "Account List fetched by cifId: " + cifId);
+    }
+
+//    @Override
+//    @Transactional(rollbackFor = Exception.class)
+//    public ApplicationResponse addUserAccountMapping(AddUserAccountMappingRequestDto request) {
+//        System.out.println("Inside addUserAccountMapping method");
+//        System.out.println("Request DTO: " + request.getAccountId());
+//
+//        // Validate User existence
+//        User user = userService.getUserById(request.getUserId());
+//        if (user == null) {
+//            throw new GTPAppException("User with ID: " + request.getUserId() + " not found.", null);
+//        }
+//
+//        // Validate Account existence and prepare DTOs for response
+//        // This call fetches AccountDetail objects based on the account numbers provided in request.getAccountId()
+//        List<AccountDetail> requestedAccountDetails = userAccountMappingService.getAccountsById(request.getAccountId());
+//        if (requestedAccountDetails.size() != request.getAccountId().size()) {
+//            // This means some requested accounts were not found.
+//            // You might want to handle this more gracefully, e.g., return a partial success or specific error.
+//            throw new GTPAppException("One or more requested accounts not found.", null);
+//        }
+//
+//        List<AccountDetailsDto> pendingAccountDetailsDto = requestedAccountDetails.stream()
+//                .map(AccountDetailsDto::convertToDto)
+//                .collect(Collectors.toList());
+//
+//        // Save to temporary mapping table
+//        // IMPORTANT FIX: Iterate over the fetched AccountDetail objects and use their actual 'id' (UUID)
+//        // instead of the account number from the request DTO.
+//        for (AccountDetail accountDetail : requestedAccountDetails) {
+//            UserAccountMappingTempId tempId = new UserAccountMappingTempId(request.getUserId(), accountDetail.getId()); // Use accountDetail.getId()
+//            UserAccountMappingTemp tempMapping = UserAccountMappingTemp.builder()
+//                    .id(tempId)
+//                    .createUser(request.getBankAdminId()) // Placeholder, replace with actual user from security context
+//                    .build();
+//            userAccountMappingTempService.save(tempMapping);
+//        }
+//
+//        AddUserAccountMappingResponseDto responseDto = AddUserAccountMappingResponseDto.builder()
+//                .userId(user.getUserId())
+//                .accountDetails(pendingAccountDetailsDto)
+//                .build();
+//
+//        return new ApplicationResponse("SUCCESS", responseDto, "User Account Mapping request submitted for approval.");
+//    }
+//
+//    @Override
+//    @Transactional(rollbackFor = Exception.class)
+//    public ApplicationResponse addBulkUserAccountMapping(List<AddUserAccountMappingRequestDto> request) {
+//        System.out.println("Inside addBulkUserAccountMapping method");
+//        System.out.println("Request DTO" +request);
+//        List<AddUserAccountMappingResponseDto> response = new ArrayList<>();
+//        for(AddUserAccountMappingRequestDto req : request) {
+//            response.add((AddUserAccountMappingResponseDto) addUserAccountMapping(req).getPayload());
+//        }
+//        return new ApplicationResponse("SUCCESS", response, "User Account Mapping requests submitted for approval.");
+//    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ApplicationResponse addUserAccountMapping(AddUserAccountMappingRequestDto request) {
+
+//        AccountDetail account = userAccountMappingService.getAccountById(request.getAccountId());
+        List<AccountDetail> accountList = userAccountMappingService.getAccountsById(request.getAccountId());
+
+        User user = userService.getUserById(request.getUserId());
+
+        user.setAccountMapping(accountList);
+
+        user = userService.saveUser(user);
+
+        AddUserAccountMappingResponseDto response = AddUserAccountMappingResponseDto.builder()
+                .userId(user.getUserId())
+                .accountDetails(user.getAccountMapping().stream()
+                        .map(AccountDetailsDto :: convertToDto)
+                        .toList()
+                )
+                .build();
+
+        return new ApplicationResponse("SUCCESS", response, "User Account Mapping added successfully.");
     }
 
     @Override
-    public FDInterestRatesRespDto calculateFdModel(FDInterestRatesReqDto request) {
-    	
-        log.info("Calculating FD model (V2) for amount: {} via Indus API", request.getAmountValue());
-
-        // Map to External Request DTO with static fields from working Postman request
-        ExternalFDModelDTOs.RequestWrapper externalRequest = ExternalFDModelDTOs.RequestWrapper.builder()
-                .request(ExternalFDModelDTOs.RequestContent.builder()
-                        .header(ExternalFDModelDTOs.RequestHeader.builder()
-                                .requestUUID(java.util.UUID.randomUUID().toString())
-                                .channelId("GCT")
-                                .build())
-                        .body(ExternalFDModelDTOs.RequestBody.builder()
-                                .fdModelDepositRequest(ExternalFDModelDTOs.FDModelDepositRequest.builder()
-                                        .depositAmount(request.getAmountValue())
-                                        .depositPeriodDays(request.getDays() != null ? request.getDays() : "0")
-                                        .depositPeriodMonths(request.getMonths() != null ? request.getMonths() : "0")
-                                        .depositDate(request.getDepositDate() != null
-                                                ? request.getDepositDate().atZone(java.time.ZoneId.systemDefault())
-                                                        .format(java.time.format.DateTimeFormatter.ISO_INSTANT)
-                                                : java.time.Instant.now().toString())
-                                        .depositcurrencyCode("USD")
-                                        .currencyCode("USD")
-                                        .schmCode("FEIBU")
-                                        .interestTableCode("TGINT")
-                                        .daysInAYear("365")
-                                        .monthsInYear("12")
-                                        .flowType("N")
-                                        .pegFlag("Y")
-                                        .depositType("T")
-                                        .schmType("TDA")
-                                        .build())
-                                .build())
-                        .build())
-                .build();
-
-        log.info(">>>> INDUSIND REQUEST: {}", externalRequest);
-
-        try {
-            ExternalFDModelDTOs.ResponseWrapper response = indusIndV2FeignClient.getDepositModelV2(externalRequest,
-                    clientId, clientSecret);
-            log.info("IndusInd Response: {}", response);
-
-            if (response != null && response.getResponse() != null) {
-                ExternalFDModelDTOs.ResponseHeader header = response.getResponse().getHeader();
-                if (header != null && "success".equalsIgnoreCase(header.getStatus())) {
-                    ExternalFDModelDTOs.FDModelDepositResponse body = response.getResponse().getBody()
-                            .getFdModelDepositResponse();
-
-                    return FDInterestRatesRespDto.builder()
-                            .status("SUCCESS")
-                            .interestRate(body.getInterestRate())
-                            .maturityAmount(body.getMaturityAmt())
-                            .maturityDate(java.time.LocalDate.parse(body.getMaturityDate().substring(0, 10)))
-                            .interestAmount(body.getInterestAmount())
-                            .currency(body.getCurrencyCode())
-                            .build();
-                } else if (response.getResponse().getError() != null) {
-                    return FDInterestRatesRespDto.builder()
-                            .status("FAILED")
-                            .errorCode(response.getResponse().getError().getErrorCode())
-                            .errorMessage(response.getResponse().getError().getErrorDesc())
-                            .build();
-                }
-            }
-
-            return FDInterestRatesRespDto.builder()
-                    .status("FAILED")
-                    .errorMessage("Unexpected response structure from API")
-                    .build();
-        } catch (Exception e) {
-            log.error("Error calling IndusInd FD Model API: {}", e.getMessage());
-            return FDInterestRatesRespDto.builder()
-                    .status("FAILED")
-                    .errorMessage("API Connection/Parsing Error: " + e.getMessage())
-                    .build();
+    @Transactional(rollbackFor = Exception.class)
+    public ApplicationResponse addBulkUserAccountMapping(List<AddUserAccountMappingRequestDto> request) {
+        List<AddUserAccountMappingResponseDto> response = new ArrayList<>();
+        for(AddUserAccountMappingRequestDto req : request) {
+            response.add((AddUserAccountMappingResponseDto) addUserAccountMapping(req).getPayload());
         }
+        return new ApplicationResponse("SUCCESS", response, "User Account Mapping added successfully.");
     }
 
     @Override
-    public Object createFd(Map<String, Object> request) {
-        log.info("Creating FD (td-add-account)");
-        // Dummy implementation for now
-        Map<String, String> response = new HashMap<>();
-        response.put("responseCode", "00");
-        response.put("responseDesc", "Fixed Deposit Created Successfully");
-        return response;
-    }
+    public ApplicationResponse getAccountsByUserId(Long userId) {
 
-    private Map<String, Object> mapToMap(CommonRequest common) {
-        Map<String, Object> map = new HashMap<>();
-        map.put("appType", common.getAppType());
-        map.put("appVersion", common.getAppVersion());
-        map.put("authProduct", common.getAuthProduct());
-        map.put("com_ImeiNo", common.getCom_ImeiNo());
-        map.put("customerId", common.getCustomerId());
-        map.put("deviceId", common.getDeviceId());
-        map.put("deviceModel", common.getDeviceModel());
-        map.put("deviceName", common.getDeviceName());
-        map.put("deviceOS", common.getDeviceOS());
-        map.put("deviceType", common.getDeviceType());
-        map.put("isUsrLoggedIn", common.getIsUsrLoggedIn());
-        map.put("platform", common.getPlatform());
-        map.put("requestType", common.getRequestType());
-        map.put("token", common.getToken());
-        map.put("userCode", common.getUserCode());
-        map.put("userId", common.getUserId());
-        map.put("userRole", common.getUserRole());
-        return map;
-    }
+        User user = userService.getUserById(userId);
 
-    private AccountDetailsResponse getDummyAccountDetails(String acid) {
-        AccountDetailsResponse resp = new AccountDetailsResponse();
-        resp.setResponseCode("R000");
-        resp.setResponseDesc("Success");
-        resp.setListAcno(new ArrayList<>());
+        List<AccountDetail> accountDetail = user.getAccountMapping();
 
-        AccountDetailsResponse.MappedAccount acc = new AccountDetailsResponse.MappedAccount();
-        acc.setAcctName("XYZ Limited - MOCKED");
-        acc.setAcno(acid);
-        acc.setIsMapped("1");
-        resp.getListAcno().add(acc);
-        return resp;
-    }
+        if(Objects.isNull(accountDetail)) {
+            throw new GTPAppException("Account mapping for user with id: " + userId + " does not exist.", null);
+        }
 
-    private FdModelResponse getDummyFdModel() {
-        FdModelResponse resp = new FdModelResponse();
-        resp.setStatus("SUCCESS");
-        resp.setInterestRates("6.75");
-        return resp;
-    }
+        List<AccountDetailsDto> accountDto = accountDetail.stream()
+                .map(AccountDetailsDto :: convertToDto)
+                .toList();
 
-    private OtpResponse getDummyOtpResponse() {
-        OtpResponse resp = new OtpResponse();
-        resp.setErrorCode("00");
-        resp.setOtpHint("1189");
-        resp.setSentTo("878882XXXX");
-        resp.setAction("STATE_ID_MOCKED_123456");
-        return resp;
-    }
-
-    private OtpVerifyResponse getDummyOtpVerifyResponse() {
-        OtpVerifyResponse resp = new OtpVerifyResponse();
-        resp.setResponseCode("00");
-        resp.setResponseDesc("Otp Verified Successfully");
-        return resp;
-    }
-
-    @Override
-    public FdSummaryResponse fetchFdSummary(FdSummaryRequest request) {
-        log.info("Fetching FD summary via JSON (Dummy) for CIF: {}", request.getCifId());
-        return FdSummaryResponse.builder()
-                .responseCode("00")
-                .responseDesc("Success (MOCK)")
-                .fdDetails(new ArrayList<>())
-                .build();
+        return new ApplicationResponse("SUCCESS", accountDto, "Account Details for userId " + userId +" fetched successfully.");
     }
 }
