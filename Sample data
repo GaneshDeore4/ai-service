@@ -1,151 +1,50 @@
-package com.indusind.trade.admin.facade.impl;
+sync-microservices/app-fixed-deposit-service/src/main/java/com/indusind/trade/fd/controller/FDController.java
 
-import com.indusind.trade.admin.facade.UserAccountMappingFacade;
-import com.indusind.trade.model.dtos.requestdtos.AddUserAccountMappingRequestDto;
-import com.indusind.trade.model.dtos.response.dtos.AccountDetailsDto;
-import com.indusind.trade.model.dtos.response.dtos.AddUserAccountMappingResponseDto;
-import com.indusind.trade.model.dtos.response.dtos.ApplicationResponse;
-import com.indusind.trade.model.entities.company.AccountDetail;
-import com.indusind.trade.model.entities.company.User;
-import com.indusind.trade.admin.entities.UserAccountMappingTemp;
-import com.indusind.trade.admin.entities.UserAccountMappingTempId;
-import com.indusind.trade.model.exception.GTPAppException;
-import com.indusind.trade.model.service.UserAccountMappingService;
-import com.indusind.trade.model.service.UserService;
-import com.indusind.trade.admin.service.UserAccountMappingTempService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
-@Component
-@RequiredArgsConstructor
-public class UserAccountMappingFacadeImpl implements UserAccountMappingFacade {
-
-    private final UserAccountMappingService userAccountMappingService;
-    private final UserService userService;
-    private final UserAccountMappingTempService userAccountMappingTempService; // Inject new service
-
-    @Override
-    public ApplicationResponse getAccountsByCifId(String cifId) {
-        List<AccountDetail> accounts = userAccountMappingService.getAccountDetailsByCifId(cifId);
-
-        List<AccountDetailsDto> accountsDto = accounts.stream().map(
-                AccountDetailsDto :: convertToDto
-        ).toList();
-        return new ApplicationResponse("SUCCESS", accountsDto, "Account List fetched by cifId: " + cifId);
+@PostMapping("/getMidOfficeList")
+    public ApplicationResponse getMidOfficeList(@RequestBody GetFDByStatusRequestDto request, @PageableDefault(page = 0, size = 10, sort = "id") Pageable pageable) {
+        Page<FixedDepositDto> fdPage = service.getMidOfficeList(request.getStatus(), pageable);
+        return new ApplicationResponse("SUCCESS", fdPage, "FD list fetched");
     }
 
-//    @Override
-//    @Transactional(rollbackFor = Exception.class)
-//    public ApplicationResponse addUserAccountMapping(AddUserAccountMappingRequestDto request) {
-//        System.out.println("Inside addUserAccountMapping method");
-//        System.out.println("Request DTO: " + request.getAccountId());
-//
-//        // Validate User existence
-//        User user = userService.getUserById(request.getUserId());
-//        if (user == null) {
-//            throw new GTPAppException("User with ID: " + request.getUserId() + " not found.", null);
-//        }
-//
-//        // Validate Account existence and prepare DTOs for response
-//        // This call fetches AccountDetail objects based on the account numbers provided in request.getAccountId()
-//        List<AccountDetail> requestedAccountDetails = userAccountMappingService.getAccountsById(request.getAccountId());
-//        if (requestedAccountDetails.size() != request.getAccountId().size()) {
-//            // This means some requested accounts were not found.
-//            // You might want to handle this more gracefully, e.g., return a partial success or specific error.
-//            throw new GTPAppException("One or more requested accounts not found.", null);
-//        }
-//
-//        List<AccountDetailsDto> pendingAccountDetailsDto = requestedAccountDetails.stream()
-//                .map(AccountDetailsDto::convertToDto)
-//                .collect(Collectors.toList());
-//
-//        // Save to temporary mapping table
-//        // IMPORTANT FIX: Iterate over the fetched AccountDetail objects and use their actual 'id' (UUID)
-//        // instead of the account number from the request DTO.
-//        for (AccountDetail accountDetail : requestedAccountDetails) {
-//            UserAccountMappingTempId tempId = new UserAccountMappingTempId(request.getUserId(), accountDetail.getId()); // Use accountDetail.getId()
-//            UserAccountMappingTemp tempMapping = UserAccountMappingTemp.builder()
-//                    .id(tempId)
-//                    .createUser(request.getBankAdminId()) // Placeholder, replace with actual user from security context
-//                    .build();
-//            userAccountMappingTempService.save(tempMapping);
-//        }
-//
-//        AddUserAccountMappingResponseDto responseDto = AddUserAccountMappingResponseDto.builder()
-//                .userId(user.getUserId())
-//                .accountDetails(pendingAccountDetailsDto)
-//                .build();
-//
-//        return new ApplicationResponse("SUCCESS", responseDto, "User Account Mapping request submitted for approval.");
-//    }
-//
-//    @Override
-//    @Transactional(rollbackFor = Exception.class)
-//    public ApplicationResponse addBulkUserAccountMapping(List<AddUserAccountMappingRequestDto> request) {
-//        System.out.println("Inside addBulkUserAccountMapping method");
-//        System.out.println("Request DTO" +request);
-//        List<AddUserAccountMappingResponseDto> response = new ArrayList<>();
-//        for(AddUserAccountMappingRequestDto req : request) {
-//            response.add((AddUserAccountMappingResponseDto) addUserAccountMapping(req).getPayload());
-//        }
-//        return new ApplicationResponse("SUCCESS", response, "User Account Mapping requests submitted for approval.");
-//    }
+///sync-microservices/app-fixed-deposit-service/src/main/java/com/indusind/trade/fd/service/FDService.java
+    Page<FixedDepositDto> getMidOfficeList(List<String> status, Pageable page);
 
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public ApplicationResponse addUserAccountMapping(AddUserAccountMappingRequestDto request) {
+// /sync-microservices/app-fixed-deposit-service/src/main/java/com/indusind/trade/fd/service/impl/FDServiceImpl.java
 
-//        AccountDetail account = userAccountMappingService.getAccountById(request.getAccountId());
-        List<AccountDetail> accountList = userAccountMappingService.getAccountsById(request.getAccountId());
+   @Override
+    public Page<FixedDepositDto> getMidOfficeList(List<String> status, Pageable page) {
+        // To provide a unified view for the Mid-Office tray, we merge results from
+        // both standard FD requests and FD Closure requests into a single paginated result.
+        List<FixedDepositDto> unifiedList = new ArrayList<>();
 
-        User user = userService.getUserById(request.getUserId());
+        // 1. Fetch and Map standard Fixed Deposits (Creation)
+        fdRepo.findAllByStatusIn(status, Pageable.unpaged()).forEach(fd ->
+                unifiedList.add(FixedDepositDto.convertToDto(fd))
+        );
 
-        user.setAccountMapping(accountList);
+        // 2. Fetch and Map Close Fixed Deposits (Closure)
+        clsFD.findAllByStatusIn(status, Pageable.unpaged()).forEach(entity -> {
+            FixedDepositDto dto = new FixedDepositDto();
+            BeanUtils.copyProperties(entity, dto);
 
-        user = userService.saveUser(user);
+            // Manually bridge field naming and type differences between Entity and DTO
+            dto.setAccountNumber(entity.getFdAccountNumber());
+            if (entity.getAmount() != null) {
+                dto.setAmount(entity.getAmount().doubleValue()); // Convert BigDecimal to Double
+            }
+            if (entity.getStatus() != null) {
+                dto.setStatus(FDStatus.valueOf(String.valueOf(entity.getStatus()))); // Map String status to Enum
+            }
+            unifiedList.add(dto);
+        });
 
-        AddUserAccountMappingResponseDto response = AddUserAccountMappingResponseDto.builder()
-                .userId(user.getUserId())
-                .accountDetails(user.getAccountMapping().stream()
-                        .map(AccountDetailsDto :: convertToDto)
-                        .toList()
-                )
-                .build();
+        // 3. Apply a common sort order across the combined dataset (e.g., ID descending)
+        unifiedList.sort(Comparator.comparing(FixedDepositDto::getId).reversed());
 
-        return new ApplicationResponse("SUCCESS", response, "User Account Mapping added successfully.");
+        // 4. Implement manual pagination to extract the correct sublist for the requested page
+        int start = (int) page.getOffset();
+        int end = Math.min((start + page.getPageSize()), unifiedList.size());
+        List<FixedDepositDto> subList = (start < unifiedList.size()) ? unifiedList.subList(start, end) : new ArrayList<>();
+
+        return new PageImpl<>(subList, page, unifiedList.size());
     }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public ApplicationResponse addBulkUserAccountMapping(List<AddUserAccountMappingRequestDto> request) {
-        List<AddUserAccountMappingResponseDto> response = new ArrayList<>();
-        for(AddUserAccountMappingRequestDto req : request) {
-            response.add((AddUserAccountMappingResponseDto) addUserAccountMapping(req).getPayload());
-        }
-        return new ApplicationResponse("SUCCESS", response, "User Account Mapping added successfully.");
-    }
-
-    @Override
-    public ApplicationResponse getAccountsByUserId(Long userId) {
-
-        User user = userService.getUserById(userId);
-
-        List<AccountDetail> accountDetail = user.getAccountMapping();
-
-        if(Objects.isNull(accountDetail)) {
-            throw new GTPAppException("Account mapping for user with id: " + userId + " does not exist.", null);
-        }
-
-        List<AccountDetailsDto> accountDto = accountDetail.stream()
-                .map(AccountDetailsDto :: convertToDto)
-                .toList();
-
-        return new ApplicationResponse("SUCCESS", accountDto, "Account Details for userId " + userId +" fetched successfully.");
-    }
-}
