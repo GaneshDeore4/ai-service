@@ -1,29 +1,45 @@
-sync-microservices/app-fixed-deposit-service/src/main/java/com/indusind/trade/fd/controller/FDController.java
 
-@PostMapping("/getMidOfficeList")
-    public ApplicationResponse getMidOfficeList(@RequestBody GetFDByStatusRequestDto request, @PageableDefault(page = 0, size = 10, sort = "id") Pageable pageable) {
-        Page<FixedDepositDto> fdPage = service.getMidOfficeList(request.getStatus(), pageable);
+    @PostMapping("/getFDByCIFAndStatus")
+    public ApplicationResponse getFDByCIFAndStatus(@RequestBody GetFDByStatusRequestDto request, @PageableDefault(page = 0, size = 10, sort = "id") Pageable pageable) {
+        Page<FixedDepositDto> fdPage = service.getFDByCifIdAndStatus(request.getCifId(), request.getStatus(), pageable);
         return new ApplicationResponse("SUCCESS", fdPage, "FD list fetched");
     }
 
-///sync-microservices/app-fixed-deposit-service/src/main/java/com/indusind/trade/fd/service/FDService.java
-    Page<FixedDepositDto> getMidOfficeList(List<String> status, Pageable page);
+///////////
+/sync-microservices/app-fixed-deposit-service/src/main/java/com/indusind/trade/fd/repository/CloseFixedDepositRepository.java
 
-// /sync-microservices/app-fixed-deposit-service/src/main/java/com/indusind/trade/fd/service/impl/FDServiceImpl.java
 
-   @Override
-    public Page<FixedDepositDto> getMidOfficeList(List<String> status, Pageable page) {
+    Page<CloseFixedDeposit> findByCifIdHashAndStatusIn(String cifId, List<String> status, Pageable page);
+
+    default Page<CloseFixedDeposit> findByCifIdAndStatusIn(String cifId, List<String> status, Pageable page) {
+        return findByCifIdHashAndStatusIn(HashUtils.HAMCMD5Hash(cifId), status, page);
+    }
+
+
+// 
+
+
+    Page<FixedDeposit> findByCifIdHashAndStatusIn(String cifId, List<String> status, Pageable page);
+
+    default Page<FixedDeposit> findByCifIdAndStatusIn(String cifId, List<String> status, Pageable page) {
+        return findByCifIdHashAndStatusIn(HashUtils.HAMCMD5Hash(cifId), status, page);
+    }
+
+// roservices/app-fixed-deposit-service/src/main/java/com/indusind/trade/fd/service/impl/FDServiceImpl.java
+
+ @Override
+    public Page<FixedDepositDto> getFDByCifIdAndStatus(String cifId, List<String> status, Pageable page) {
         // To provide a unified view for the Mid-Office tray, we merge results from
         // both standard FD requests and FD Closure requests into a single paginated result.
         List<FixedDepositDto> unifiedList = new ArrayList<>();
 
         // 1. Fetch and Map standard Fixed Deposits (Creation)
-        fdRepo.findAllByStatusIn(status, Pageable.unpaged()).forEach(fd ->
+        fdRepo.findByCifIdAndStatusIn(cifId, status, Pageable.unpaged()).forEach(fd ->
                 unifiedList.add(FixedDepositDto.convertToDto(fd))
         );
 
         // 2. Fetch and Map Close Fixed Deposits (Closure)
-        clsFD.findAllByStatusIn(status, Pageable.unpaged()).forEach(entity -> {
+        clsFD.findByCifIdAndStatusIn(cifId, status, Pageable.unpaged()).forEach(entity -> {
             FixedDepositDto dto = new FixedDepositDto();
             BeanUtils.copyProperties(entity, dto);
 
@@ -48,3 +64,41 @@ sync-microservices/app-fixed-deposit-service/src/main/java/com/indusind/trade/fd
 
         return new PageImpl<>(subList, page, unifiedList.size());
     }
+
+c-microservices/app-fixed-deposit-service/src/main/java/com/indusind/trade/fd/service/FDService.java
+
+Page<FixedDepositDto> getFDByCifIdAndStatus(String cifId, List<String> status, Pageable page);
+
+
+
+----------------------------------------------------------------------------------------
+
+  depositPeriodMonths:number;
+  depositPeriodDays: number;
+  depositPeriodYears:number;
+
+ <i *ngIf="activeTab=='FD_ENQUIRY'" class="fas fa-book-open cursor-pointer" title="Premature FD Closure"
+        (click)="openClosure(row)"></i>
+
+
+
+      "tenureDays": this.selectedDeposit?.tenureDays == undefined ? 0 : this.selectedDeposit?.tenureDays,
+      "tenureMonths": this.selectedDeposit?.depositPeriodMonths == undefined ? 0 : this.selectedDeposit?.depositPeriodMonths,
+      "tenureYears": this.selectedDeposit?.tenureYears == undefined ? 0 : this.selectedDeposit?.tenureYears,
+      "userId": this.userId,
+      "currentLevel": 0, //WHAT IS THIS?
+      "makerId": this.userId, //NOT NEEDED
+      // "createdAt": "2026-04-27T11:00:00", //BACKEND
+      // "updatedAt": "2026-04-27T11:00:00", //BACKEND
+
+<div>
+            <h3>Premature FD Closure</h3>
+            <h4>Deposit Account Details</h4>
+          </div>
+
+    h4{color:black}
+
+
+
+
+
