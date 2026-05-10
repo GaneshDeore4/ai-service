@@ -1,5 +1,28 @@
-keytool -exportcert ^
--alias indusapiuat ^
--keystore "%JAVA_HOME%\lib\security\cacerts" ^
--file indusapiuat.cer ^
--storepass changeit
+changeActiveTab(tab: string) {
+    this.activeTab = tab;
+    // Clear the data first when switching tabs
+    this.deposits = [];
+    this.filteredDeposits = [];
+
+    if (tab === 'FD_ENQUIRY') {
+      this.getTableData(); // Finacle Data
+    } else if (tab === 'ACTION_REQUIRED') {
+      if (this.userRole == CLIENTCHECKER || this.userRole == CLIENTMC) {
+        this.getFdForChecker();
+      } else if (
+        this.userRole == CLIENTVERIFIER ||
+        this.userRole == CLIENTRELEASER
+      ) {
+        this.getFdForVR();
+      } else {
+        this.getOtherFDS('REJECTED', true);
+        this.getOtherFDS('MID_OFFICE_REJECTED', false);
+      }
+    } else if (tab === 'PENDING_APPROVAL') {
+      this.getOtherFDS('IN_APPROVAL', true);
+    } else if (tab === 'PENDING_AT_BANK') {
+      this.getOtherFDS('PENDING_AT_MID_OFFICE', true);
+    }
+
+    this.updateHeaders();
+  }
