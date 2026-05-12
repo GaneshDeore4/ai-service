@@ -146,7 +146,17 @@ export class ClosureModalComponent implements OnChanges {
     }
   }
 
+  isSchemeWithdrawable(): boolean {
+    const schemeCode = this.selectedEnquiry?.schemeCode?.toUpperCase();
+    return ['TDFCN', 'PEW', 'NHJK'].includes(schemeCode || '');
+  }
+
   onAction() {
+    if (!this.isSchemeWithdrawable()) {
+      this.errorMessage = 'Not withdrawable  fd';
+      return;
+    }
+
     if (this.withdrawalType === 'PARTIAL') {
       const maturityAmt = Number(this.selectedEnquiry?.maturityAmount || 0);
       if (this.withdrawalAmount <= 0) {
