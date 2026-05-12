@@ -1,3 +1,6 @@
+"description": "Parameter value [5384888.95] did not match expected type [SqmBasicValuedSimplePath(com.indusind.trade.model.entities.company.AuthMatrix(m).amount)]"
+}
+
 import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Deposit, DepositEnquiryDetail } from '../../../core/models/banking.models';
