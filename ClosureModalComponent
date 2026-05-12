@@ -133,10 +133,16 @@ export class ClosureModalComponent implements OnChanges {
   errorMessage: string = '';
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['selectedDeposit'] && this.selectedDeposit) {
-      this.reason = this.selectedDeposit.reason ?? '';
+    if (changes['selectedDeposit'] || changes['selectedEnquiry']) {
+      if (this.selectedDeposit) {
+        this.reason = this.selectedDeposit.reason ?? '';
+      }
+      this.withdrawalType = '';
+      this.withdrawalAmount = 0;
+      this.errorMessage = '';
     }
   }
+
   onWithdrawalTypeChange() {
     this.errorMessage = '';
     if (this.withdrawalType === 'FULL') {
