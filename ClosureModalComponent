@@ -68,6 +68,8 @@ import { FormsModule } from '@angular/forms';
               Partial withdrawal
             </label>
           </div>
+<div class="error-msg" *ngIf="errorMessage && !withdrawalType" style="margin-bottom: 10px;">{{errorMessage}}</div>
+
 
           <div class="amount-container" *ngIf="withdrawalType">
             <label for="withdrawalAmount">Withdrawal Amount</label>
