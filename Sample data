@@ -1,29 +1,20 @@
-  changeActiveTab(tab: string) {
-    this.activeTab = tab;
-    if (tab === 'ACTION_REQUIRED') {
-      if (this.userRole == CLIENTCHECKER || this.userRole == CLIENTMC)
-        this.getFdForChecker();
-      else if (
-        this.userRole == CLIENTVERIFIER ||
-        this.userRole == CLIENTRELEASER
-      ) {
-        this.getFdForVR();
-      } else {
-        // this.getOtherFDS('REJECTED', true);
-        // this.getOtherFDS('MID_OFFICE_REJECTED');
-        this.getTableData();
-      }
-    } else {
-      this.getTableData();
-    }
-    // else if (tab === 'FD_ENQUIRY') {
-    //   this.getOtherFDS('APPROVED', true); // ✅ first call clears
-    //   this.getOtherFDS('MID_OFFICE_APPROVED'); // ✅ append
-    // } else if (tab === 'PENDING_AT_BANK') {
-    //   this.getOtherFDS('PENDING_AT_MID_OFFICE', true);
-    // }
-    // else if(tab=='PENDING_APPROVAL'){
-    //   this.getTableData();
-    // }
-    this.updateHeaders();
-  }
+# 1. Generate 4096-bit RSA keypair
+openssl genrsa -out rsa-keypair.pem 4096
+
+# 2. Export PRIVATE key — PKCS8 unencrypted (exact format the code expects)
+openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt \
+  -in rsa-keypair.pem -out jwt-private.pem
+
+# 3. Export PUBLIC key — X509/SPKI format (exact format the code expects)
+openssl rsa -in rsa-keypair.pem -pubout -out jwt-public.pem
+
+# 4. Verify headers match exactly what the code strips
+head -1 jwt-private.pem   # must be: -----BEGIN PRIVATE KEY-----
+head -1 jwt-public.pem    # must be: -----BEGIN PUBLIC KEY-----
+
+# 5. Remove the raw keypair — no longer needed
+rm rsa-keypair.pem
+
+# 6. Place into service
+cp jwt-private.pem app-authservice/src/main/resources/keys/jwt-private.pem
+cp jwt-public.pem  app-authservice/src/main/resources/keys/jwt-public.pem
