@@ -1,4 +1,16 @@
-# 1. Generate 4096-bit RSA keypair
+1. Replace the name of "Disclosure under Regulation 46" to "Other Disclosure" (without year wise searching)
+2. Add Separate category "Disclosure under SEBI (LODR) Regulations, 2015 and create sub-categories under this category - i) Disclosure Under Regulation 24A (year wise) ii) Disclosure Under Regulation 30 (year wise) & iii) Disclosure Under Regulation 46 (without year wise searching)
+3. Edit the contact person details on the home page of the website - please enter - Investor Grievance Redressal Officer, Rahul Vasant Lavane (Company Secretary and Compliance Officer), Email: info@spectrum-india.com., 
+
+image.png
+
+Please remove the above at the earliest.
+
+
+Request you to make the changes as requested in point no.3 - Sequence - Contact Person>(Investor Grievance Redressal Officer)>Mr. Rahul Vasant Lavane>(Company Secretary and Company Secretary)>Email: info@spectrum-india.com>Phone No.: 0257 2210192
+
+image.png 
+4. Please add year from 2026-27, 2027-28, 2028-29 to 2029-20301. Generate 4096-bit RSA keypair
 openssl genrsa -out rsa-keypair.pem 4096
 
 # 2. Export PRIVATE key — PKCS8 unencrypted (exact format the code expects)
